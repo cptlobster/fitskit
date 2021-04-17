@@ -46,6 +46,11 @@ extension AnyImageHDU {
         
         return try? gray.createCGImage(format: format)
     }
+    func vMONO_data(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> [FITSByte_F]? {
+        
+        let converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        return converted
+    }
     func vMONO_buffer(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> vImage_Buffer? {
         
         var converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
@@ -165,6 +170,41 @@ extension AnyImageHDU {
         
         if let image = image{
             onCompletion(image)
+        } else {
+            onError?(AcceleratedFail.unsupportedFormat("Unable to crate image"))
+        }
+    }
+    public func v_data(onError: ((Error) -> Void)?, onCompletion: @escaping ([FITSByte_F]) -> Void) {
+        
+        guard let bitpix = bitpix else {
+            onError?(AcceleratedFail.invalidMetadata("Missing BITPIX information"))
+            return
+        }
+        
+        guard let channels = naxis, let width = naxis(1), let height = naxis(2) else {
+            onError?(AcceleratedFail.invalidMetadata("Missing NAXIS information"))
+            return
+        }
+        
+        
+        let bscale : Float = self.bscale ?? 1
+        let bzero : Float = self.bzero ?? 0
+        
+        guard var dat = self.dataUnit else {
+            onError?(AcceleratedFail.missingData("DataUnit Empty"))
+            return
+        }
+        
+        var data : [FITSByte_F]?
+        if channels == 2 {
+            data = vMONO_data(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            
+        } else  if channels == 3 {
+            data = vMONO_data(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        }
+        
+        if let data = data{
+            onCompletion(data)
         } else {
             onError?(AcceleratedFail.unsupportedFormat("Unable to crate image"))
         }
