@@ -46,6 +46,24 @@ extension AnyImageHDU {
         
         return try? gray.createCGImage(format: format)
     }
+    func vMONO_buffer(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> vImage_Buffer? {
+        
+        var converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        
+        let layerBytes = width * height * FITSByte_F.bytes
+        let rowBytes = width * FITSByte_F.bytes
+        
+        let gray = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * 0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var finfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue))
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.floatComponents.rawValue))
+        let format = vImage_CGImageFormat(bitsPerComponent: FITSByte_F.bits, bitsPerPixel: FITSByte_F.bits, colorSpace: CGColorSpaceCreateDeviceGray(), bitmapInfo: finfo)!
+        let cgImage = (try? gray.createCGImage(format: format))!
+        return try? vImage_Buffer(cgImage: cgImage, format: format)
+    }
     
     func vRGB(_ data: inout DataUnit, layer: (Int,Int,Int) = (0,1,2),  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> CGImage? {
         
@@ -108,6 +126,41 @@ extension AnyImageHDU {
             
         } else  if channels == 3 {
             image = vRGB(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        }
+        
+        if let image = image{
+            onCompletion(image)
+        } else {
+            onError?(AcceleratedFail.unsupportedFormat("Unable to crate image"))
+        }
+    }
+    public func v_buffer(onError: ((Error) -> Void)?, onCompletion: @escaping (vImage_Buffer) -> Void) {
+        
+        guard let bitpix = bitpix else {
+            onError?(AcceleratedFail.invalidMetadata("Missing BITPIX information"))
+            return
+        }
+        
+        guard let channels = naxis, let width = naxis(1), let height = naxis(2) else {
+            onError?(AcceleratedFail.invalidMetadata("Missing NAXIS information"))
+            return
+        }
+        
+        
+        let bscale : Float = self.bscale ?? 1
+        let bzero : Float = self.bzero ?? 0
+        
+        guard var dat = self.dataUnit else {
+            onError?(AcceleratedFail.missingData("DataUnit Empty"))
+            return
+        }
+        
+        var image : vImage_Buffer?
+        if channels == 2 {
+            image = vMONO_buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            
+        } else  if channels == 3 {
+            image = vMONO_buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
         }
         
         if let image = image{
