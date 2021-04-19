@@ -51,6 +51,24 @@ extension AnyImageHDU {
         let converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
         return converted
     }
+    func vMONO_format(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> vImage_CGImageFormat? {
+        
+        var converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        
+        let layerBytes = width * height * FITSByte_F.bytes
+        let rowBytes = width * FITSByte_F.bytes
+        
+        let gray = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * 0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var finfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue))
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.floatComponents.rawValue))
+        let format = vImage_CGImageFormat(bitsPerComponent: FITSByte_F.bits, bitsPerPixel: FITSByte_F.bits, colorSpace: CGColorSpaceCreateDeviceGray(), bitmapInfo: finfo)!
+        return format
+        
+    }
     func vMONO_buffer(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> vImage_Buffer? {
         
         var converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
@@ -104,6 +122,66 @@ extension AnyImageHDU {
         return try? outBuffer.createCGImage(format: rgbFormat)
     }
     
+    func vRGB_Buffer(_ data: inout DataUnit, layer: (Int,Int,Int) = (0,1,2),  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> vImage_Buffer? {
+        
+        var converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        
+        let layerBytes = width * height * FITSByte_F.bytes
+        let rowBytes = width * FITSByte_F.bytes
+        
+        var red = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * layer.0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var green = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * layer.1).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var blue = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * layer.2).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var outBuffer = try! vImage_Buffer(width: width, height: height, bitsPerPixel: UInt32(FITSByte_F.bits * 3))
+        defer{
+            outBuffer.free()
+        }
+        return outBuffer
+    }
+    
+    func vRGB_format(_ data: inout DataUnit, layer: (Int,Int,Int) = (0,1,2),  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> vImage_CGImageFormat? {
+        
+        var converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        
+        let layerBytes = width * height * FITSByte_F.bytes
+        let rowBytes = width * FITSByte_F.bytes
+        
+        var red = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * layer.0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var green = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * layer.1).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var blue = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * layer.2).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var outBuffer = try! vImage_Buffer(width: width, height: height, bitsPerPixel: UInt32(FITSByte_F.bits * 3))
+        defer{
+            outBuffer.free()
+        }
+        
+        vImageConvert_PlanarFtoRGBFFF(&red, &green, &blue, &outBuffer, vImage_Flags(kvImageNoFlags))
+        
+        var finfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue))
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.floatComponents.rawValue))
+        let rgbFormat = vImage_CGImageFormat(bitsPerComponent: FITSByte_F.bits, bitsPerPixel: FITSByte_F.bits * 3, colorSpace: CGColorSpaceCreateDeviceRGB(), bitmapInfo: finfo)!
+        return rgbFormat
+    }
+    
+
     public func v_cgimage(onError: ((Error) -> Void)?, onCompletion: @escaping (CGImage) -> Void) {
         
         guard let bitpix = bitpix else {
@@ -127,8 +205,8 @@ extension AnyImageHDU {
         
         var image : CGImage?
         if channels == 2 {
-            image = vMONO(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
-            
+            image = vRGB(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+
         } else  if channels == 3 {
             image = vRGB(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
         }
@@ -139,6 +217,7 @@ extension AnyImageHDU {
             onError?(AcceleratedFail.unsupportedFormat("Unable to crate image"))
         }
     }
+    
     public func v_buffer(onError: ((Error) -> Void)?, onCompletion: @escaping (vImage_Buffer) -> Void) {
         
         guard let bitpix = bitpix else {
@@ -162,7 +241,7 @@ extension AnyImageHDU {
         
         var image : vImage_Buffer?
         if channels == 2 {
-            image = vMONO_buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            image = vRGB_Buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
             
         } else  if channels == 3 {
             image = vMONO_buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
@@ -170,6 +249,41 @@ extension AnyImageHDU {
         
         if let image = image{
             onCompletion(image)
+        } else {
+            onError?(AcceleratedFail.unsupportedFormat("Unable to crate image"))
+        }
+    }
+    public func v_format(onError: ((Error) -> Void)?, onCompletion: @escaping (vImage_CGImageFormat) -> Void) {
+        
+        guard let bitpix = bitpix else {
+            onError?(AcceleratedFail.invalidMetadata("Missing BITPIX information"))
+            return
+        }
+        
+        guard let channels = naxis, let width = naxis(1), let height = naxis(2) else {
+            onError?(AcceleratedFail.invalidMetadata("Missing NAXIS information"))
+            return
+        }
+        
+        
+        let bscale : Float = self.bscale ?? 1
+        let bzero : Float = self.bzero ?? 0
+        
+        guard var dat = self.dataUnit else {
+            onError?(AcceleratedFail.missingData("DataUnit Empty"))
+            return
+        }
+        
+        var format : vImage_CGImageFormat?
+        if channels == 2 {
+            format = vRGB_format(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            
+        } else  if channels == 3 {
+            format = vRGB_format(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        }
+        
+        if let format = format{
+            onCompletion(format)
         } else {
             onError?(AcceleratedFail.unsupportedFormat("Unable to crate image"))
         }
