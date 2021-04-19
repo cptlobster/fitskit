@@ -46,7 +46,7 @@ extension AnyImageHDU {
         
         return try? gray.createCGImage(format: format)
     }
-    func vMONO_data(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> [FITSByte_F]? {
+    func v_data(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> [FITSByte_F]? {
         
         let converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
         return converted
@@ -205,7 +205,7 @@ extension AnyImageHDU {
         
         var image : CGImage?
         if channels == 2 {
-            image = vRGB(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            image = vMONO(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
 
         } else  if channels == 3 {
             image = vRGB(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
@@ -241,10 +241,10 @@ extension AnyImageHDU {
         
         var image : vImage_Buffer?
         if channels == 2 {
-            image = vRGB_Buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            image = vMONO_buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
             
         } else  if channels == 3 {
-            image = vMONO_buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            image = vRGB_Buffer(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
         }
         
         if let image = image{
@@ -276,7 +276,7 @@ extension AnyImageHDU {
         
         var format : vImage_CGImageFormat?
         if channels == 2 {
-            format = vRGB_format(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            format = vMONO_format(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
             
         } else  if channels == 3 {
             format = vRGB_format(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
@@ -311,10 +311,10 @@ extension AnyImageHDU {
         
         var data : [FITSByte_F]?
         if channels == 2 {
-            data = vMONO_data(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            data = v_data(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
             
         } else  if channels == 3 {
-            data = vMONO_data(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            data = v_data(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
         }
         
         if let data = data{
