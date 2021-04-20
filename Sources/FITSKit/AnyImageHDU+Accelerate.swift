@@ -61,7 +61,6 @@ extension AnyImageHDU {
         let gray = converted.withUnsafeMutableBytes{ mptr8 in
             vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * 0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
         }
-        print(gray)
         
         var finfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
         finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue))
@@ -80,13 +79,7 @@ extension AnyImageHDU {
         let gray = converted.withUnsafeMutableBytes{ mptr8 in
             vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * 0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
         }
-        
-        var finfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
-        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue))
-        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.floatComponents.rawValue))
-        let format = vImage_CGImageFormat(bitsPerComponent: FITSByte_F.bits, bitsPerPixel: FITSByte_F.bits, colorSpace: CGColorSpaceCreateDeviceGray(), bitmapInfo: finfo)!
-        let cgImage = (try? gray.createCGImage(format: format))!
-        return try? vImage_Buffer(cgImage: cgImage, format: format)
+        return gray
     }
     
     func vRGB(_ data: inout DataUnit, layer: (Int,Int,Int) = (0,1,2),  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> CGImage? {
