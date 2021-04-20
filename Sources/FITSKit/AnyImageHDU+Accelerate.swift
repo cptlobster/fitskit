@@ -61,6 +61,7 @@ extension AnyImageHDU {
         let gray = converted.withUnsafeMutableBytes{ mptr8 in
             vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * 0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
         }
+        print(gray)
         
         var finfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
         finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue))
@@ -323,5 +324,6 @@ extension AnyImageHDU {
             onError?(AcceleratedFail.unsupportedFormat("Unable to crate image"))
         }
     }
+    
 }
 
