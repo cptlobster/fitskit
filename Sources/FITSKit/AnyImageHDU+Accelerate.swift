@@ -81,6 +81,57 @@ extension AnyImageHDU {
         }
         return gray
     }
+    func vMONO_Complete(_ data: inout DataUnit,  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> CGImage {
+        var converted = FITSByteTool.normalize_F(&data, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+        
+        let layerBytes = width * height * FITSByte_F.bytes
+        let rowBytes = width * FITSByte_F.bytes
+        
+        var gray = converted.withUnsafeMutableBytes{ mptr8 in
+            vImage_Buffer(data: mptr8.baseAddress?.advanced(by: layerBytes * 0).bindMemory(to: FITSByte_F.self, capacity: width * height), height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: rowBytes)
+        }
+        
+        var finfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue))
+        finfo.insert(CGBitmapInfo(rawValue: CGBitmapInfo.floatComponents.rawValue))
+        let format = vImage_CGImageFormat(bitsPerComponent: FITSByte_F.bits, bitsPerPixel: FITSByte_F.bits, colorSpace: CGColorSpaceCreateDeviceGray(), bitmapInfo: finfo)!
+        var destinationBuffer: vImage_Buffer = {
+            guard var destinationBuffer = try? vImage_Buffer(width: Int(width), height: Int(height), bitsPerPixel: UInt32(FITSByte_F.bits)) else {
+                                                    fatalError("Unable to create destination buffers.")
+            }
+            
+            return destinationBuffer
+        }()
+        let redCoefficient: Float = 0.2126
+        let greenCoefficient: Float = 0.7152
+        let blueCoefficient: Float = 0.0722
+        let gammaCoefficient: Float = 1.0
+        let divisor: Int32 = 0x1000
+        let fDivisor = Float(divisor)
+        
+        var coefficientsMatrix = [
+            Float(redCoefficient * fDivisor),
+            Float(greenCoefficient * fDivisor),
+            Float(blueCoefficient * fDivisor),
+            Float(gammaCoefficient * fDivisor)
+        ]
+        let preBias: [Float] = [0, 0, 0, 0]
+        let postBias: Float = 0
+        vImageMatrixMultiply_ARGBFFFFToPlanarF(&gray,
+                                               &destinationBuffer,
+                                               &coefficientsMatrix,
+                                               preBias,
+                                               postBias,
+                                               vImage_Flags(kvImagePrintDiagnosticsToConsole))
+        let monoFormat = vImage_CGImageFormat(
+            bitsPerComponent: 8,
+            bitsPerPixel: 8,
+            colorSpace: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+            renderingIntent: .defaultIntent)!
+        let result = (try? destinationBuffer.createCGImage(format: monoFormat))!
+        return result
+    }
     
     func vRGB(_ data: inout DataUnit, layer: (Int,Int,Int) = (0,1,2),  width: Int, height: Int, bscale: Float, bzero: Float, _ bitpix: BITPIX) -> CGImage? {
         
@@ -199,7 +250,7 @@ extension AnyImageHDU {
         
         var image : CGImage?
         if channels == 2 {
-            image = vMONO(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
+            image = vMONO_Complete(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
 
         } else  if channels == 3 {
             image = vRGB(&dat, width: width, height: height, bscale: bscale, bzero: bzero, bitpix)
