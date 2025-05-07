@@ -11,7 +11,9 @@
 </a>
 </p>
 
-A native Swift library to read and write FITS files
+A native Swift library to read and write FITS files.
+
+This library is forked from [ahlim3/fitskit](https://github.com/ahlim3/fitskit), which is forked from [brampf/fitskit](https://github.com/brampf/fitskit).
 
 ## Description
 
